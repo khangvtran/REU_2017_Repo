@@ -8,7 +8,8 @@ output: html_document
 ```{r}
 # install and load package with ipak function bt Steven Worthington
 # https://gist.github.com/stevenworthington/3178163
-ipak <- function(pkg){
+ipak <- function(pkg)
+{
   # This function is for attaching libraries in a vector into the session
   # If they are not installed yet, then proceed and install them
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -48,17 +49,10 @@ prepareODS <- function(path)
 {
   data = read_csv(path)
   ods = makeODS(data)
-  #ods = convertToInt(ods)  # Will cause error to compare()
   return(ods)
 }
 ```
 
-```{r}
-path = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Patient/patientID_17.csv"
-ods = prepareODS(path)
-ods = as.data.frame(ods)
-sds = syn(ods)
-```
 
 ```{r}
 adjustEpisode <- function(syn)
@@ -77,30 +71,58 @@ adjustEpisode <- function(syn)
   }
   return(syn)
 }
+```
 
+```{r}
+path = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Patient/patientID_17.csv"
+ods = prepareODS(path)
+ods = as.data.frame(ods)
+#sds = syn(ods, visit.sequence = , m = , proper = TRUE, seed = , predictor.matrix = )
+sds = syn(ods)
+ods <- adjustEpisode(ods)
 sds$syn <- adjustEpisode(sds$syn)
 sds$syn
 ```
 
+
+
 ```{r}
-# Episode and Numbe of Episode the previous day need to be as factor 
-# for ods
-ods[,"Episode"] <- as.factor(ods[,"Episode"])
-ods[,"Number of Episodes Previous Day"] <- as.factor(ods[,"Number of Episodes Previous Day"])
-# for sds
-sds$syn[,"Episode"] <- as.factor(sds$syn[,"Episode"])
-sds$syn[,"Number of Episodes Previous Day"] <- as.factor(sds$syn[,"Number of Episodes Previous Day"])
+
+adjustToFactor <- function(data, var1 = "Episode", var2 = "Number of Episodes Previous Day")
+{
+  # Episode and Numbe of Episode the previous day need to be as factor 
+  data[, var1] <- as.factor(data[, var1])
+  data[, var2] <- as.factor(data[, var2])
+  return(data)
+}
+
+ods = adjustToFactor(ods)
+sds$syn = adjustToFactor(sds$syn)
+
+# # Episode and Numbe of Episode the previous day need to be as factor 
+# # for ods
+# ods[,"Episode"] <- as.factor(ods[,"Episode"])
+# ods[,"Number of Episodes Previous Day"] <- as.factor(ods[,"Number of Episodes Previous Day"])
+# # for sds
+# sds$syn[,"Episode"] <- as.factor(sds$syn[,"Episode"])
+# sds$syn[,"Number of Episodes Previous Day"] <- as.factor(sds$syn[,"Number of Episodes Previous Day"])
 
 sds$syn
-```
 
+```
 
 ```{r}
-  call <- sds$call
-  m <- sds$m
-  method <- sds$method
-  predictor.matrix <- sds$predictor.matrix
+cmp <- function(ods, sds, vars)
+{
+  for (i in 1:length(vars))
+  {
+    cmp = compare(sds, ods, vars[i])
+    print(cmp[1])
+    print(cmp[2])
+  }
+}
 ```
+
 
 
 
@@ -108,43 +130,101 @@ sds$syn
 # Plot the points of each record in the observed data set vs the synthetic data set.
 # Fit a linear model into the data
 
+# Am Stress and AM Hunger
 plot1 <- ggplot(data = ods, aes(x = `AM Stress`, y = `AM Hunger`, col = `Episode`)) +
   geom_point() +
-  geom_smooth(method = lm)
-
+  geom_smooth(method = glm) + 
+  ggtitle(label = "Observed Data")
 plot1.synth =  ggplot(data = sds$syn, aes(x = `AM Stress`, y = `AM Hunger`, col = `Episode`)  ) + 
   geom_point() +
-  geom_smooth(method = lm)
-grid.arrange(plot1, plot1.synth, nrow = 2)
+  geom_smooth(method = glm) +
+  ggtitle("Synthetic Data")
+grid.arrange(plot1, plot1.synth, nrow = 2) 
+  
 
+# AM Sleep and AM Sleep Hours
 plot2 <- ggplot(data = ods, aes(x = `AM Sleep`, y = `AM Sleep hours`, col = `Episode`)) +
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = glm) +
+  ggtitle(label = "Observed Data")
 plot2.synth =  ggplot(data = sds$syn, aes(x = `AM Sleep`, y = `AM Sleep hours`, col = `Episode`)  ) + 
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = glm) + 
+  ggtitle("Synthetic Data")
 grid.arrange(plot2, plot2.synth, nrow = 2)
 
+#PM Stress and EVE Stress
 plot3 <- ggplot(data = ods, aes(x = `PM Stress`, y = `EVE Stress`, col = `Episode`)) +
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = glm) + 
+  ggtitle(label = "Observed Data")
 plot3.synth =  ggplot(data = sds$syn, aes(x = `PM Stress`, y = `EVE Stress`, col = `Episode`)  ) + 
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = glm) + 
+  ggtitle("Synthetic Data")
 grid.arrange(plot3, plot3.synth, nrow = 2)
 ```
 
+
 ```{r}
-# Print the comparison
-for (i in 1:length(vars))
-{
-  cmp = compare(sds, ods, vars[i])
-  print(cmp[1])
-  print(cmp[2])
-}
+call <- sds$call
+m <- sds$m
+method <- sds$method
+predictor.matrix <- sds$predictor.matrix
+```
+
+```{r}
+
+cmp(ods, sds, vars)
+```
+
+
+
+
+###################################################################################
+```{r}
+#sds = syn(ods, visit.sequence = , m = , proper = TRUE, seed = , predictor.matrix = )
+my.seed = 7531
+sds = syn(ods, m = 4,proper = TRUE, seed = my.seed)
+sds$syn
+```
+
+
+
+```{r}
+# Print the frequentcy histogram, compare those of ods and sds side by side
+cmp(ods, sds, vars)
+```
+
+
+```{r}
+
+# set family to binomial since we have only 2 outcomes for Episode
+fsds <- glm.synds(formula = Episode ~ `AM Stress` + `AM Hunger` + `AM Sleep` + `AM Sleep hours` +
+                                    `AM Weight` + `Percent Weight change (from prev week)` + `Percent Weight change (from prev day)` + `PM Stress` + `EVE Stress` + `Number of Episodes Previous Day`, data = sds, family = "binomial")
+
+# Have a summary for beta (linear coefficient) of each variable, its Standard Deviation and z score
+# Once z score is > 1.96, it is statistically significant to conclude that the variable can affect the classification of Episode
+summary(fsds)
+
+# plot the z score comparision
+compare(fsds, ods)
 
 ```
 
 
+```{r}
+# Save a the dataframe into a csv file.
+write.csv(x = sds$syn, file = "test.csv")
+# => When saving multiple dataframe in this fashion, the data will be aligned horizontally 
+# => not suitable for the purpose of the research
+```
+
+
+```{r}
+# 
+main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
+
+```
 
 
