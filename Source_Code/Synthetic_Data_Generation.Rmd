@@ -1,0 +1,150 @@
+---
+title: "Synthetic_Data_Generation"
+author: "Khang Vinh Tran"
+date: "6/29/2017"
+output: html_document
+---
+
+```{r}
+# install and load package with ipak function bt Steven Worthington
+# https://gist.github.com/stevenworthington/3178163
+ipak <- function(pkg){
+  # This function is for attaching libraries in a vector into the session
+  # If they are not installed yet, then proceed and install them
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) 
+        install.packages(new.pkg, dependencies = TRUE)
+    sapply(pkg, require, character.only = TRUE)
+}
+
+# Create a vector of library needed and attach them to the session with ipak()
+libraryList <- c("devtools","tidyverse", "tibble", "synthpop","gridExtra", "data.table")
+ipak(libraryList)
+
+# Create a vector of variables we are interested in
+vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", 
+         "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)", 
+         "PM Stress", "EVE Stress", 
+         "Number of Episodes Previous Day", "Episode" )
+```
+
+```{r}
+#  function ods takes in a dataset with all variables
+# return a dataset with only a set of selected variables
+makeODS <- function(data)
+{
+  vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", 
+         "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)", 
+         "PM Stress", "EVE Stress", 
+         "Number of Episodes Previous Day", "Episode" )
+  ods <- data[,vars]
+  return(ods)
+}
+#ods = makeODS(data)
+```
+
+```{r}
+prepareODS <- function(path)
+{
+  data = read_csv(path)
+  ods = makeODS(data)
+  #ods = convertToInt(ods)  # Will cause error to compare()
+  return(ods)
+}
+```
+
+```{r}
+path = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Patient/patientID_17.csv"
+ods = prepareODS(path)
+ods = as.data.frame(ods)
+sds = syn(ods)
+```
+
+```{r}
+adjustEpisode <- function(syn)
+{
+  numRow <- nrow(syn)
+  for (i in 1:numRow)
+  {
+    if (syn$`Number of Episodes Previous Day`[i] == 0)
+    {
+      syn$`Episode`[i-1] = 0
+    }
+    else
+    {
+      syn$`Episode`[i-1] = 1
+    }
+  }
+  return(syn)
+}
+
+sds$syn <- adjustEpisode(sds$syn)
+sds$syn
+```
+
+```{r}
+# Episode and Numbe of Episode the previous day need to be as factor 
+# for ods
+ods[,"Episode"] <- as.factor(ods[,"Episode"])
+ods[,"Number of Episodes Previous Day"] <- as.factor(ods[,"Number of Episodes Previous Day"])
+# for sds
+sds$syn[,"Episode"] <- as.factor(sds$syn[,"Episode"])
+sds$syn[,"Number of Episodes Previous Day"] <- as.factor(sds$syn[,"Number of Episodes Previous Day"])
+
+sds$syn
+```
+
+
+```{r}
+  call <- sds$call
+  m <- sds$m
+  method <- sds$method
+  predictor.matrix <- sds$predictor.matrix
+```
+
+
+
+```{r}
+# Plot the points of each record in the observed data set vs the synthetic data set.
+# Fit a linear model into the data
+
+plot1 <- ggplot(data = ods, aes(x = `AM Stress`, y = `AM Hunger`, col = `Episode`)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+plot1.synth =  ggplot(data = sds$syn, aes(x = `AM Stress`, y = `AM Hunger`, col = `Episode`)  ) + 
+  geom_point() +
+  geom_smooth(method = lm)
+grid.arrange(plot1, plot1.synth, nrow = 2)
+
+plot2 <- ggplot(data = ods, aes(x = `AM Sleep`, y = `AM Sleep hours`, col = `Episode`)) +
+  geom_point() +
+  geom_smooth(method = lm)
+plot2.synth =  ggplot(data = sds$syn, aes(x = `AM Sleep`, y = `AM Sleep hours`, col = `Episode`)  ) + 
+  geom_point() +
+  geom_smooth(method = lm)
+grid.arrange(plot2, plot2.synth, nrow = 2)
+
+plot3 <- ggplot(data = ods, aes(x = `PM Stress`, y = `EVE Stress`, col = `Episode`)) +
+  geom_point() +
+  geom_smooth(method = lm)
+plot3.synth =  ggplot(data = sds$syn, aes(x = `PM Stress`, y = `EVE Stress`, col = `Episode`)  ) + 
+  geom_point() +
+  geom_smooth(method = lm)
+grid.arrange(plot3, plot3.synth, nrow = 2)
+```
+
+```{r}
+# Print the comparison
+for (i in 1:length(vars))
+{
+  cmp = compare(sds, ods, vars[i])
+  print(cmp[1])
+  print(cmp[2])
+}
+
+```
+
+
+
+

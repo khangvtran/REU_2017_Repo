@@ -1,0 +1,135 @@
+---
+title: "Synth_Test_2"
+author: "Khang Vinh Tran"
+date: "6/26/2017"
+output: html_document
+---
+
+```{r}
+# Check, Install and  attach in all the neccessary libraries
+ipak <- function(pkg){
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) 
+        install.packages(new.pkg, dependencies = TRUE)
+    sapply(pkg, require, character.only = TRUE)
+}
+
+libraryList = c("devtools","tidyverse", "tibble", "synthpop","gridExtra")
+ipak(libraryList)
+```
+
+
+```{r}
+# read in the original observed data set
+vars <- c("sex", "agegr", "placesize", "edu", "socprof", "marital", "income", "smoke")
+ods <- SD2011[ ,vars ]
+class(ods)
+```
+
+
+```{r}
+# by all settings as default, generate the synthetic data set
+sds = syn(data = ods)
+```
+
+
+```{r}
+# Assesing the synthetic data set
+# check the observed data set
+print(sds$call)
+# check how many copy(ies) was created
+print(sds$m)
+# check the synthetc data itself
+print(sds$syn)
+# check the method that were applied to each variable
+print(sds$method)
+# check the matrix of prediction
+print(sds$predictor.matrix)
+```
+
+
+```{r}
+sds2 <- syn(ods, proper = TRUE,m = 5, method = "cart", cart.minbucket = 10,
+cont.na = list(income = c(NA, -8)), smoothing = list(income = "density"))
+```
+
+```{r}
+print(sds2$m)
+print(sds2$method)
+print(sds2$predictor.matrix)
+```
+
+
+```{r}
+compare(sds, ods, vars = "income")
+```
+
+
+```{r}
+compare(sds2, ods, vars = "income")
+```
+
+```{r}
+compare(sds2, ods, vars = "edu", msel = 1:5)
+
+```
+
+
+```{r}
+utility.synds(sds, ods)
+```
+
+```{r}
+sds2$syn[c(2:4)]
+```
+
+
+```{r}
+fsds <- glm.synds(I(smoke=="YES") ~ sex + agegr + placesize + edu +
+socprof + marital + income, data = sds, family = "binomial")
+```
+
+
+```{r}
+summary(fsds)
+```
+
+
+```{r}
+compare(fsds, ods)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

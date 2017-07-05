@@ -1,0 +1,101 @@
+---
+title: "test"
+author: "Khang Vinh Tran"
+date: "6/21/2017"
+output: html_document
+---
+
+```{r}
+# source the file ipak.R by Steven Worthington
+source(file = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/Source_Code/ipak.R")
+# create a list of library needed and load them all at once. If the package has not been installed, installed it.
+libraryList = c("devtools","tidyverse", "tibble", "synthpop","gridExtra","datasets", "MASS", "Ecdat")
+ipak(libraryList)
+```
+
+```{r}
+# ipak function: install and load multiple R packages.
+# check to see if packages are installed. Install them if they are not, then load them into the R session.
+
+ipak <- function(pkg){
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) 
+        install.packages(new.pkg, dependencies = TRUE)
+    sapply(pkg, require, character.only = TRUE)
+}
+```
+
+
+```{r}
+# make a copy of the dataset USA Arrest
+data <- iris
+class(data)
+data = data.frame(data, stringsAsFactors = False)
+glimpse(data)
+head(data)
+```
+
+
+```{r}
+# visuallize the data set
+plot1 = ggplot(data = data, aes(x = Sepal.Length, y = Sepal.Width, col = Species)) +
+       geom_point() +
+       geom_smooth(method = lm)
+
+plot2 = ggplot(data = data, aes(x = Petal.Length, y = Petal.Width, col = Species)) + 
+        geom_point() +
+        geom_smooth(method = lm)
+
+#grid.arrange(plot1, plot2, nrow = 2)
+#plot1
+#plot2
+```
+
+```{r}
+my.seed = 1000
+data.synth <- syn(data, seed = my.seed)
+#data.synth <- sds.default["syn"]
+#data.synth <- as.data.frame(data.synth)
+names(data.synth)
+glimpse(data.synth)
+head(data.synth)
+```
+
+
+```{r}
+data.synth.df = as.data.frame(data.synth["syn"])
+# visuallize the data set
+plot3 = ggplot(data = data.synth.df, aes(x = syn.Sepal.Length, y = syn.Sepal.Width, col = syn.Species)) +
+       geom_point() +
+       geom_smooth(method = lm)
+
+plot4 = ggplot(data = data.synth.df, aes(x = syn.Petal.Length, y = syn.Petal.Width, col = syn.Species)) + 
+        geom_point() +
+        geom_smooth(method = lm)
+#plot3
+#plot4
+```
+
+```{r}
+grid.arrange(plot1, plot2,plot3,plot4, ncol = 2)
+```
+
+
+```{r}
+syn.original.comparision = compare(data.synth, data, vars = c("Sepal.Width", "Sepal.Length", "Petal.Width", "Petal.Length"))
+print(class(syn.original.comparision))
+print(names(syn.original.comparision))
+syn.original.comparision
+```
+
+
+```{r}
+syn()
+```
+
+
+
+
+```{r}
+sessionInfo()
+```
