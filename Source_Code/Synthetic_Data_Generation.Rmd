@@ -78,8 +78,8 @@ path = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual
 ods = prepareODS(path)
 ods = as.data.frame(ods)
 #sds = syn(ods, visit.sequence = , m = , proper = TRUE, seed = , predictor.matrix = )
-sds = syn(ods)
 ods <- adjustEpisode(ods)
+sds = syn(ods)
 sds$syn <- adjustEpisode(sds$syn)
 sds$syn
 ```
@@ -98,15 +98,6 @@ adjustToFactor <- function(data, var1 = "Episode", var2 = "Number of Episodes Pr
 
 ods = adjustToFactor(ods)
 sds$syn = adjustToFactor(sds$syn)
-
-# # Episode and Numbe of Episode the previous day need to be as factor 
-# # for ods
-# ods[,"Episode"] <- as.factor(ods[,"Episode"])
-# ods[,"Number of Episodes Previous Day"] <- as.factor(ods[,"Number of Episodes Previous Day"])
-# # for sds
-# sds$syn[,"Episode"] <- as.factor(sds$syn[,"Episode"])
-# sds$syn[,"Number of Episodes Previous Day"] <- as.factor(sds$syn[,"Number of Episodes Previous Day"])
-
 sds$syn
 
 ```
@@ -171,10 +162,10 @@ call <- sds$call
 m <- sds$m
 method <- sds$method
 predictor.matrix <- sds$predictor.matrix
+predictor.matrix
 ```
 
 ```{r}
-
 cmp(ods, sds, vars)
 ```
 
@@ -182,13 +173,30 @@ cmp(ods, sds, vars)
 
 
 ###################################################################################
+TEST: GENERATE SYNTHETIC DATA FOR MULTIPLE SETS
+
 ```{r}
 #sds = syn(ods, visit.sequence = , m = , proper = TRUE, seed = , predictor.matrix = )
-my.seed = 7531
+my.seed = 1357
 sds = syn(ods, m = 4,proper = TRUE, seed = my.seed)
 sds$syn
+# STRONG NOTICE: Proper = TRUE will cause Subscript to be out of bound with seed != 1357
 ```
 
+```{r}
+my.seed = 83781263
+# STRONG NOTICE: Proper = TRUE will cause Subscript to be out of bound
+sds = syn(ods, m = 8, seed = my.seed)
+sds$syn
+
+# for (i in 1:8)
+# {
+#   print(class(sds$syn[i]))
+# }
+```
+```{r}
+as.data.frame(sds$syn[2])
+```
 
 
 ```{r}
@@ -198,13 +206,16 @@ cmp(ods, sds, vars)
 
 
 ```{r}
-
+# fit a generalized linear model into the syn dataset
+# Choosing Generalized Linear Model since there is an uncertainty that the response variable (Episode) is Normally distributed or not
 # set family to binomial since we have only 2 outcomes for Episode
-fsds <- glm.synds(formula = Episode ~ `AM Stress` + `AM Hunger` + `AM Sleep` + `AM Sleep hours` +
+fsds <- glm.synds(formula = I(Episode == 1) ~ `AM Stress` + `AM Hunger` + `AM Sleep` + `AM Sleep hours` +
                                     `AM Weight` + `Percent Weight change (from prev week)` + `Percent Weight change (from prev day)` + `PM Stress` + `EVE Stress` + `Number of Episodes Previous Day`, data = sds, family = "binomial")
 
-# Have a summary for beta (linear coefficient) of each variable, its Standard Deviation and z score
-# Once z score is > 1.96, it is statistically significant to conclude that the variable can affect the classification of Episode
+# Examine the Beta (regression coefficient) associated with each variable.
+# Also provide a standard deviation and from that, we compute the z-score. 
+# If the z score is far away enough to yield a p-value > alpha, we reject the null hypothesis that Beta = 0
+# Hence, the variable is affective interm of predicting Episode
 summary(fsds)
 
 # plot the z score comparision
@@ -214,16 +225,78 @@ compare(fsds, ods)
 
 
 ```{r}
+################
+# TESTING AREA #
+################
+
 # Save a the dataframe into a csv file.
 write.csv(x = sds$syn, file = "test.csv")
 # => When saving multiple dataframe in this fashion, the data will be aligned horizontally 
 # => not suitable for the purpose of the research
+class(as.data.frame(sds$syn[1]))
+a = as.data.frame(sds$syn[1])
+a
+
+M = 8 
+for (i in 1:M)
+{
+  df = as.data.frame(sds$syn[i])
+  print(colnames(df))
+  colnames(df) = c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours",
+                   "AM Weight", 
+                   "Percent Weight change (from prev week)", "Percent Weight change (from prev day)",
+                   "PM Stress", "EVE Stress",
+                   "Number of Episodes Previous Day", "Episode")
+  print(colnames(df))
+  print(df)
+  df = adjustEpisode(df)
+  print(df)
+  break
+}
 ```
 
+########################################################################################################
 
 ```{r}
-# 
-main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
+Generate_Synthetic_Data_For_All_Patients <- function(main.Path, M, my.Seed)
+{
+  file.Names <- list.files(path = main.Path, pattern = "*.csv")
+  len <- length(file.Names)
+  for (i in 1:len)
+  {
+    #print(paste(main.Path, file.Names[i], sep='/'))
+    full.Path = paste(main.Path, file.Names[i], sep ='/')
+    assign(x = file.Names[i], value = read_csv(full.Path))
+    buf = as.data.frame(read_csv(full.Path))
+    ods = makeODS(buf)
+    ods = adjustEpisode(ods)
+    sds = syn(data = ods, m = M, seed = my.Seed)
+    df.Out <- data.frame()
+    #print(df.Out)
+    for (j in 1:M)
+    {
+      df = as.data.frame(sds$syn[j])
+      colnames(df) = c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours",
+                     "AM Weight", 
+                     "Percent Weight change (from prev week)", "Percent Weight change (from prev day)",
+                     "PM Stress", "EVE Stress",
+                     "Number of Episodes Previous Day", "Episode")
+      df = adjustEpisode(df) 
+      df = adjustToFactor(df)
+      df.Out = rbind(df.Out, df)
+  
+    }
+    writePath <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/synth"
+    writePath <- paste(writePath, file.Names[i], sep = "/")
+    #print(writePath)
+    write.csv(x = df.Out, file = writePath, row.names = FALSE)
+  }
+}
+
+mySeed = 657578
+m <- 10
+mainPath <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Patient"
+Generate_Synthetic_Data_For_All_Patients(main.Path, M, my.Seed)
 
 ```
 
