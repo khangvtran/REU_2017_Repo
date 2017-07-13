@@ -1,0 +1,25 @@
+---
+title: "Features_Importance"
+author: "Khang Vinh Tran"
+date: "7/12/2017"
+output: html_document
+---
+
+```{r}
+library("ggplot2")
+```
+
+
+```{r}
+data = read_csv(file = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Predict/Features_Importance.csv")
+Variables = colnames(data)
+Importance = as.numeric(data[1,])
+data = data.frame(Variables, Importance)
+plot = ggplot(data = data, aes(x = reorder(Variables, -Importance), y = Importance)) +
+        geom_bar(stat = "identity", width = 0.6, fill="steelblue4") + 
+        coord_flip() + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+        labs(x = "Variables", y = "Percentage of being chosen")
+plot
+```
+
