@@ -1,0 +1,76 @@
+---
+title: "CrossValidation"
+author: "Khang Vinh Tran"
+date: "7/19/2017"
+output: html_document
+---
+```{r}
+# source all the neccesaary files and script
+source(file = "ipak.R")
+# Create a vector of library needed and attach them to the session with ipak()
+libraryList <- c("devtools","tidyverse", "tibble", "synthpop","gridExtra", "data.table", "dplyr", "caret")
+ipak(libraryList)
+source(file = "rmd2rscript.R")
+#rmd2rscript(infile = "Synthetic_Data_Generation.Rmd")
+source(file = "Synthetic_Data_Generation.R")
+```
+
+```{r}
+# define an array of variables' names
+vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )	
+```
+
+
+```{r}
+set.seed(1)
+main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
+K = 10
+# set this as a default argument
+vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )
+
+
+
+# CREATE THE FIRST LAYER OF FOLDER
+indi.Path <- file.path(main.Path, "Individual_Patient")
+folds.Path <- file.path(main.Path, "Folds")
+FoldsSynth.path <- file.path(main.Path, "Folds_Synth")
+result.Path <- file.path(main.Path, "Result")
+ResultSynth.Path <- file.path(main.Path, "Result_Synth")
+Paths <- c(folds.Path, FoldsSynth.path, result.Path, ResultSynth.Path)
+for (path in Paths)
+{
+  dir.create(path, showWarnings = FALSE)
+}
+
+
+
+
+file.Names <- list.files(path = indi.Path, pattern = "*.csv")
+len <- length(file.Names)
+for (i in 1:len)
+{
+  # CREATE THE SECOND LAYER OF FOLDERS
+  for (path in Paths)
+  {
+    dir.create(file.path(path, gsub(".csv", "", file.Names[i])), showWarnings = FALSE)
+  }
+  
+  full.Path <- file.path(indi.Path, file.Names[i])
+  assign(x = file.Names[i], value = read.csv(full.Path, check.names = FALSE))
+  obs <- get(file.Names[i])
+  obs <- obs[,vars]
+  indices.List <- createFolds(y = obs$Episode, k = K)
+  foldNames.List <- names(indices.List)
+  for (j in 1:K)
+  {
+    indices <- as.numeric(unlist(indices.List[j]))
+    foldNames <- foldNames.List[j]
+    test <- obs[indices, ]
+    train.Real <- obs[-indices, ]
+  }
+  
+}
+
+
+```
+
