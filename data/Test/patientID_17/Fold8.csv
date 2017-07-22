@@ -1,0 +1,9 @@
+"AM Stress","AM Hunger","AM Sleep","AM Sleep hours","AM Weight","Percent Weight change (from prev week)","Percent Weight change (from prev day)","PM Stress","EVE Stress","Number of Episodes Previous Day","Episode"
+2,3,9,4,250,0.008,0.004,3,4,1,0
+0,5,8,7,248,-0.012096774,0,0,1,1,1
+7,2,0,2,250,0.004,0.008,-1,-1,0,0
+7,5,8,6,251,0.003984064,0.003984064,-1,-1,0,1
+5,5,8,10,251,-0.015936255,-0.007968127,5,5,0,0
+8,2,10,6,246,-0.028455285,-1,7,2,0,0
+7,5,7,6,249,-0.008032129,0.012048193,5,5,0,0
+-1,-1,-1,-1,-1,-1,-1,-1,10,0,0

@@ -24,19 +24,20 @@ vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "
 ```{r}
 set.seed(1)
 main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
-K = 10
+K = 8
 # set this as a default argument
 vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )
 
 
 
-# CREATE THE FIRST LAYER OF FOLDER
+# CREATE THE FIRST LAYER OF FOLDER (test, train, train_synth, result, result_synth)
 indi.Path <- file.path(main.Path, "Individual_Patient")
-folds.Path <- file.path(main.Path, "Folds")
-FoldsSynth.path <- file.path(main.Path, "Folds_Synth")
+test.Path <- file.path(main.Path, "Test")
+train.Path <- file.path(main.Path, "Train")
+trainSynth.Path <- file.path(main.Path, "Train_Synth")
 result.Path <- file.path(main.Path, "Result")
 ResultSynth.Path <- file.path(main.Path, "Result_Synth")
-Paths <- c(folds.Path, FoldsSynth.path, result.Path, ResultSynth.Path)
+Paths <- c(test.Path, train.Path, trainSynth.Path, result.Path, ResultSynth.Path)
 for (path in Paths)
 {
   dir.create(path, showWarnings = FALSE)
@@ -44,7 +45,7 @@ for (path in Paths)
 
 
 
-
+# COLLECT ALL THE NAMES OF THE OBSERVED DATA FILES
 file.Names <- list.files(path = indi.Path, pattern = "*.csv")
 len <- length(file.Names)
 for (i in 1:len)
@@ -55,22 +56,35 @@ for (i in 1:len)
     dir.create(file.path(path, gsub(".csv", "", file.Names[i])), showWarnings = FALSE)
   }
   
+  # READ IN THE OBSERVED DATA 
   full.Path <- file.path(indi.Path, file.Names[i])
   assign(x = file.Names[i], value = read.csv(full.Path, check.names = FALSE))
   obs <- get(file.Names[i])
   obs <- obs[,vars]
+  # CREATE INDICES FOR CROSS VALIDATION FOLDS
   indices.List <- createFolds(y = obs$Episode, k = K)
+  # GET THE LIST FOR ALL FOLD NAMES (FOLD1, FOLD2, FOLD3, ...)
   foldNames.List <- names(indices.List)
   for (j in 1:K)
   {
     indices <- as.numeric(unlist(indices.List[j]))
-    foldNames <- foldNames.List[j]
+    foldName <- foldNames.List[j]
+    # CREATE AND AND WRITE TEST
     test <- obs[indices, ]
-    train.Real <- obs[-indices, ]
+    write.csv(x = test, 
+              file = file.path(test.Path,
+                               gsub(".csv", "", file.Names[i]),
+                               paste(foldName, ".csv", sep = "")),
+              row.names = FALSE)
+    # CREATE AND WRITE TRAIN FILE
+    train <- obs[-indices, ]
+    write.csv(x = train, 
+              file = file.path(train.Path,
+                               gsub(".csv", "", file.Names[i]),
+                               paste(foldName, ".csv", sep = "")),
+              row.names = FALSE)    
   }
-  
 }
-
 
 ```
 
