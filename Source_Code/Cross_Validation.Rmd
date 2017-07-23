@@ -22,9 +22,12 @@ vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "
 
 
 ```{r}
-set.seed(1)
 main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
-K = 8
+K = 4
+M = 5
+my.Seed = 1
+set.seed(my.Seed)
+
 # set this as a default argument
 vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )
 
@@ -59,10 +62,11 @@ for (i in 1:len)
   # READ IN THE OBSERVED DATA 
   full.Path <- file.path(indi.Path, file.Names[i])
   assign(x = file.Names[i], value = read.csv(full.Path, check.names = FALSE))
-  obs <- get(file.Names[i])
-  obs <- obs[,vars]
+  ods <- get(file.Names[i])
+  ods <- ods[,vars]
+  ods <- adjustToFactor(ods)
   # CREATE INDICES FOR CROSS VALIDATION FOLDS
-  indices.List <- createFolds(y = obs$Episode, k = K)
+  indices.List <- createFolds(y = ods$Episode, k = K)
   # GET THE LIST FOR ALL FOLD NAMES (FOLD1, FOLD2, FOLD3, ...)
   foldNames.List <- names(indices.List)
   for (j in 1:K)
@@ -70,21 +74,36 @@ for (i in 1:len)
     indices <- as.numeric(unlist(indices.List[j]))
     foldName <- foldNames.List[j]
     # CREATE AND AND WRITE TEST
-    test <- obs[indices, ]
+    test <- ods[indices, ]
     write.csv(x = test, 
               file = file.path(test.Path,
                                gsub(".csv", "", file.Names[i]),
                                paste(foldName, ".csv", sep = "")),
               row.names = FALSE)
     # CREATE AND WRITE TRAIN FILE
-    train <- obs[-indices, ]
+    train <- ods[-indices, ]
     write.csv(x = train, 
               file = file.path(train.Path,
                                gsub(".csv", "", file.Names[i]),
                                paste(foldName, ".csv", sep = "")),
+              row.names = FALSE)
+    # CREATE AND WRITE THE SYNTHETIC TEST FILE
+    sds <- syn(data = train, m = M, seed = my.Seed)
+    trainSynth <- data.frame()
+    for (k in 1:M)
+    {
+      df <- as.data.frame(sds$syn[k])
+      colnames(df) <- vars
+      df <- adjustToFactor(df)
+      trainSynth <- rbind(trainSynth, df)
+    }
+    write.csv(x = trainSynth, 
+              file = file.path(trainSynth.Path,
+                               gsub(".csv", "", file.Names[i]),
+                               paste(foldName, ".csv", sep = "")),
               row.names = FALSE)    
+ 
   }
 }
-
 ```
 

@@ -119,10 +119,19 @@ Generate_Synthetic_Data_For_All_Patients <- function(main.Path, write.Path, M, m
       df.Out = rbind(df.Out, df)	
     }	
     #write.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/synth"	
-    write.Path <- paste(writePath, file.Names[i], sep = "/")	
+    write.Path <- paste(write.Path, file.Names[i], sep = "/")	
     #print(writePath)	
     write.csv(x = df.Out, file = write.Path, row.names = FALSE)	
   }	
 }	
+
 #' 	
 #' 	
+# mainPath <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Patient"
+# writePath <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/synth"
+# m <- 20
+# mySeed = 657578
+# Generate_Synthetic_Data_For_All_Patients(mainPath, writePath, m, mySeed)
+
+
+
