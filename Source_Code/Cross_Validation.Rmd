@@ -13,7 +13,7 @@ source(file = "ipak.R") # ipak developed by Steven Worthington:
 #install.packages("rattle")
 # Create a vector of library needed and attach them to the session with ipak()
 libraryList <- c("devtools","tidyverse", "tibble", "synthpop","gridExtra", "data.table", "dplyr", "caret",
-                 "rpart","rpart.plot", "RColorBrewer", "ROCR")
+                 "rpart","rpart.plot", "RColorBrewer", "ROCR", "pROC")
 ipak(libraryList)
 
 source("fancyRPartPlot.R") # fancyRpartPlot developed by gjwgit: https://github.com/cran/rattle/blob/master/R/fancyRpartPlot.R
@@ -25,15 +25,18 @@ source(file = "Synthetic_Data_Generation.R")
 
 ```{r}
 # define an array of variables' names
-vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )	
+vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight",
+          "Percent Weight change (from prev week)", "Percent Weight change (from prev day)",
+          "PM Stress", "EVE Stress", "Number of Episodes Previous Day",
+          "Episode" )	
 ```
 
 
 ```{r}
 main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
 K = 4
-M = 50  #   TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
-my.Seed = 1111
+M = 40  #   TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
+my.Seed = 0
 set.seed(my.Seed)
 
 # set this as a default argument
@@ -137,7 +140,6 @@ result.Cols <- c("Accuracy", "AccuracySynth",
                 "FMeasure", "FMeasureSynth",
                 "AUC", "AUCSynth")
 Result <- data.frame(matrix(0 ,nrow = K, ncol = length(result.Cols)))
-
 colnames(x = Result) <- result.Cols
 
 fold.Result <- data.frame(matrix(0 ,nrow = 1, ncol = length(result.Cols)))
@@ -165,12 +167,18 @@ for (train.Set in train.List)
   # calculate the other Performance measurements:
   FMeasure <- 2*(prec * recall) / (prec + recall)
   fold.Result[,start.Index + 8] = FMeasure
-  # print(FMeasure)
-  # predictions <- prediction((as.numeric(preds) -1), (as.numeric(test$Episode) -1))
-  # print(performance(predictions, "f"))
+  
+  # CALCULATE AUC
+  pred <- as.numeric(preds) - 1
+  labels <- as.numeric(test$Episode) - 1
+  ROC_auc <- performance(prediction(pred, labels), "auc")
+  AUC <- ROC_auc@y.values[[1]]
+  
+  fold.Result[,start.Index + 10] = AUC
+  
   start.Index = start.Index + 1
 }
-
+# AT THE END OF THIS FUNCTION, RETURN THE RESULT FOR THAT FOLD (1 ROW)
 print(fold.Result)
 
 
