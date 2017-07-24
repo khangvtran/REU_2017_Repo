@@ -6,10 +6,18 @@ output: html_document
 ---
 ```{r}
 # source all the neccesaary files and script
-source(file = "ipak.R")
+source(file = "ipak.R") # ipak developed by Steven Worthington:
+#https://gist.github.com/stevenworthington/3178163
+
+# rattle package requires separate installation. After running install.packages(), select "y" as being prompted
+#install.packages("rattle")
 # Create a vector of library needed and attach them to the session with ipak()
-libraryList <- c("devtools","tidyverse", "tibble", "synthpop","gridExtra", "data.table", "dplyr", "caret")
+libraryList <- c("devtools","tidyverse", "tibble", "synthpop","gridExtra", "data.table", "dplyr", "caret",
+                 "rpart","rpart.plot", "RColorBrewer", "ROCR")
 ipak(libraryList)
+
+source("fancyRPartPlot.R") # fancyRpartPlot developed by gjwgit: https://github.com/cran/rattle/blob/master/R/fancyRpartPlot.R
+# source the Synthetic Data Generation script
 source(file = "rmd2rscript.R")
 #rmd2rscript(infile = "Synthetic_Data_Generation.Rmd")
 source(file = "Synthetic_Data_Generation.R")
@@ -24,8 +32,8 @@ vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "
 ```{r}
 main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
 K = 4
-M = 5
-my.Seed = 1
+M = 50  #   TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
+my.Seed = 1111
 set.seed(my.Seed)
 
 # set this as a default argument
@@ -51,7 +59,7 @@ for (path in Paths)
 # COLLECT ALL THE NAMES OF THE OBSERVED DATA FILES
 file.Names <- list.files(path = indi.Path, pattern = "*.csv")
 len <- length(file.Names)
-for (i in 1:len)
+for (i in 1:len)   # LEN IS THE NUMBER OF DATASETS (EACH PATIENT HAS ONE DATASET)
 {
   # CREATE THE SECOND LAYER OF FOLDERS
   for (path in Paths)
@@ -69,7 +77,9 @@ for (i in 1:len)
   indices.List <- createFolds(y = ods$Episode, k = K)
   # GET THE LIST FOR ALL FOLD NAMES (FOLD1, FOLD2, FOLD3, ...)
   foldNames.List <- names(indices.List)
-  for (j in 1:K)
+  # CREATE THE EMPTY RESULT TABLE FOR THIS PATIENT HERE
+  
+  for (j in 1:K)  # K IS THE NUMBER OF FOLDS
   {
     indices <- as.numeric(unlist(indices.List[j]))
     foldName <- foldNames.List[j]
@@ -90,7 +100,7 @@ for (i in 1:len)
     # CREATE AND WRITE THE SYNTHETIC TEST FILE
     sds <- syn(data = train, m = M, seed = my.Seed)
     trainSynth <- data.frame()
-    for (k in 1:M)
+    for (k in 1:M)  # M IS THE NUMBER OF SYNTHETIC SET CREATED
     {
       df <- as.data.frame(sds$syn[k])
       colnames(df) <- vars
@@ -101,9 +111,69 @@ for (i in 1:len)
               file = file.path(trainSynth.Path,
                                gsub(".csv", "", file.Names[i]),
                                paste(foldName, ".csv", sep = "")),
-              row.names = FALSE)    
- 
+              row.names = FALSE) 
+    # RUN THE MODEL HERE, APPEND THE TEST RECORD (1 ROW) TO THE RESULT TABLE
+    
+    break
   }
+  # WRITE THE RESULT TABLE HERE
+  
+  break
 }
+```
+
+
+
+
+```{r}
+
+CP = 0.01
+CONTROL <- rpart.control(cp = CP)
+
+result.Cols <- c("Accuracy", "AccuracySynth",
+                "Precision", "PrecisionSynth",
+                "Recall","RecallSynth",
+                "Fallout", "FalloutSynth",
+                "FMeasure", "FMeasureSynth",
+                "AUC", "AUCSynth")
+Result <- data.frame(matrix(0 ,nrow = K, ncol = length(result.Cols)))
+
+colnames(x = Result) <- result.Cols
+
+fold.Result <- data.frame(matrix(0 ,nrow = 1, ncol = length(result.Cols)))
+colnames(fold.Result) <- result.Cols
+train.List <- list(train, trainSynth)
+start.Index = 1
+for (train.Set in train.List)
+{
+  tree <- rpart(Episode ~ ., train.Set, method = "class", control = CONTROL)
+  preds <- predict(object = tree, newdata = test, type = "class" )
+  conf <- table(test$Episode, preds)
+  print(conf)
+  # calculate and append accuracy
+  acc <- sum(diag(conf)) / (sum(conf))
+  fold.Result[,start.Index] = acc
+  # calculate and append precision
+  prec <- conf[1,1] / (sum(conf[,1])) 
+  fold.Result[, start.Index + 2] = prec
+  # calculate and append recall
+  recall <- conf[1,1] / (sum(conf[1,]))
+  fold.Result[,start.Index + 4] = recall
+  # calculate and append fallout
+  fallout <- conf[2,1]/(sum(conf[2,]))
+  fold.Result[,start.Index + 6] = fallout
+  # calculate the other Performance measurements:
+  FMeasure <- 2*(prec * recall) / (prec + recall)
+  fold.Result[,start.Index + 8] = FMeasure
+  # print(FMeasure)
+  # predictions <- prediction((as.numeric(preds) -1), (as.numeric(test$Episode) -1))
+  # print(performance(predictions, "f"))
+  start.Index = start.Index + 1
+}
+
+print(fold.Result)
+
+
+
 ```
 

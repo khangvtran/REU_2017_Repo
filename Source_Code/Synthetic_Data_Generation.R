@@ -124,7 +124,6 @@ Generate_Synthetic_Data_For_All_Patients <- function(main.Path, write.Path, M, m
     write.csv(x = df.Out, file = write.Path, row.names = FALSE)	
   }	
 }	
-
 #' 	
 #' 	
 # mainPath <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Patient"
