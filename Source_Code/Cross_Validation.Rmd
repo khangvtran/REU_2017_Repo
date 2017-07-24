@@ -34,9 +34,9 @@ vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight",
 
 ```{r}
 main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
-K = 4
-M = 40  #   TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
-my.Seed = 0
+K = 5
+M = 40  #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
+my.Seed = 1
 set.seed(my.Seed)
 
 # set this as a default argument
@@ -50,8 +50,8 @@ test.Path <- file.path(main.Path, "Test")
 train.Path <- file.path(main.Path, "Train")
 trainSynth.Path <- file.path(main.Path, "Train_Synth")
 result.Path <- file.path(main.Path, "Result")
-ResultSynth.Path <- file.path(main.Path, "Result_Synth")
-Paths <- c(test.Path, train.Path, trainSynth.Path, result.Path, ResultSynth.Path)
+#ResultSynth.Path <- file.path(main.Path, "Result_Synth")
+Paths <- c(test.Path, train.Path, trainSynth.Path, result.Path)
 for (path in Paths)
 {
   dir.create(path, showWarnings = FALSE)
@@ -80,8 +80,16 @@ for (i in 1:len)   # LEN IS THE NUMBER OF DATASETS (EACH PATIENT HAS ONE DATASET
   indices.List <- createFolds(y = ods$Episode, k = K)
   # GET THE LIST FOR ALL FOLD NAMES (FOLD1, FOLD2, FOLD3, ...)
   foldNames.List <- names(indices.List)
-  # CREATE THE EMPTY RESULT TABLE FOR THIS PATIENT HERE
   
+  # CREATE THE EMPTY RESULT TABLE FOR THIS PATIENT HERE
+  result.Cols <- c("Accuracy", "AccuracySynth",
+                  "Precision", "PrecisionSynth",
+                  "Recall","RecallSynth",
+                  "Fallout", "FalloutSynth",
+                  "FMeasure", "FMeasureSynth",
+                  "AUC", "AUCSynth")
+  Result <- data.frame()
+
   for (j in 1:K)  # K IS THE NUMBER OF FOLDS
   {
     indices <- as.numeric(unlist(indices.List[j]))
@@ -116,12 +124,15 @@ for (i in 1:len)   # LEN IS THE NUMBER OF DATASETS (EACH PATIENT HAS ONE DATASET
                                paste(foldName, ".csv", sep = "")),
               row.names = FALSE) 
     # RUN THE MODEL HERE, APPEND THE TEST RECORD (1 ROW) TO THE RESULT TABLE
-    
-    break
+    print(file.Names[i])
+    print(foldName)
+    fold.Result <- Test_Each_Fold(test, train, trainSynth, result.Cols)
+    Result <- rbind(Result, fold.Result)
   }
   # WRITE THE RESULT TABLE HERE
-  
-  break
+  write.csv(x = Result,
+            file = file.path(result.Path, gsub(".csv", "", file.Names[i]), "Result.csv"),
+            row.names = FALSE)
 }
 ```
 
@@ -130,58 +141,61 @@ for (i in 1:len)   # LEN IS THE NUMBER OF DATASETS (EACH PATIENT HAS ONE DATASET
 
 ```{r}
 
-CP = 0.01
-CONTROL <- rpart.control(cp = CP)
-
 result.Cols <- c("Accuracy", "AccuracySynth",
                 "Precision", "PrecisionSynth",
                 "Recall","RecallSynth",
                 "Fallout", "FalloutSynth",
                 "FMeasure", "FMeasureSynth",
                 "AUC", "AUCSynth")
-Result <- data.frame(matrix(0 ,nrow = K, ncol = length(result.Cols)))
+Result <- data.frame(matrix(ncol = length(result.Cols)))
 colnames(x = Result) <- result.Cols
 
-fold.Result <- data.frame(matrix(0 ,nrow = 1, ncol = length(result.Cols)))
-colnames(fold.Result) <- result.Cols
-train.List <- list(train, trainSynth)
-start.Index = 1
-for (train.Set in train.List)
+
+
+Test_Each_Fold <- function(test, train, trainSynth, result.Cols)
 {
-  tree <- rpart(Episode ~ ., train.Set, method = "class", control = CONTROL)
-  preds <- predict(object = tree, newdata = test, type = "class" )
-  conf <- table(test$Episode, preds)
-  print(conf)
-  # calculate and append accuracy
-  acc <- sum(diag(conf)) / (sum(conf))
-  fold.Result[,start.Index] = acc
-  # calculate and append precision
-  prec <- conf[1,1] / (sum(conf[,1])) 
-  fold.Result[, start.Index + 2] = prec
-  # calculate and append recall
-  recall <- conf[1,1] / (sum(conf[1,]))
-  fold.Result[,start.Index + 4] = recall
-  # calculate and append fallout
-  fallout <- conf[2,1]/(sum(conf[2,]))
-  fold.Result[,start.Index + 6] = fallout
-  # calculate the other Performance measurements:
-  FMeasure <- 2*(prec * recall) / (prec + recall)
-  fold.Result[,start.Index + 8] = FMeasure
-  
-  # CALCULATE AUC
-  pred <- as.numeric(preds) - 1
-  labels <- as.numeric(test$Episode) - 1
-  ROC_auc <- performance(prediction(pred, labels), "auc")
-  AUC <- ROC_auc@y.values[[1]]
-  
-  fold.Result[,start.Index + 10] = AUC
-  
-  start.Index = start.Index + 1
-}
+  fold.Result <- data.frame(matrix(0 ,nrow = 1, ncol = length(result.Cols)))
+  colnames(fold.Result) <- result.Cols
+  CP = 0.01
+  CONTROL <- rpart.control(cp = CP)
+  start.Index = 1
+  train.List <- list(train, trainSynth)
+  for (train.Set in train.List)
+  {
+    tree <- rpart(Episode ~ ., train.Set, method = "class", control = CONTROL)
+    preds <- predict(object = tree, newdata = test, type = "class" )
+    conf <- table(test$Episode, preds)
+    #print(conf)
+    # calculate and append accuracy
+    acc <- sum(diag(conf)) / (sum(conf))
+    fold.Result[,start.Index] = acc
+    # calculate and append precision
+    prec <- conf[1,1] / (sum(conf[,1])) 
+    fold.Result[, start.Index + 2] = prec
+    # calculate and append recall
+    recall <- conf[1,1] / (sum(conf[1,]))
+    fold.Result[,start.Index + 4] = recall
+    # calculate and append fallout
+    fallout <- conf[2,1]/(sum(conf[2,]))
+    fold.Result[,start.Index + 6] = fallout
+    # calculate the other Performance measurements:
+    FMeasure <- 2*(prec * recall) / (prec + recall)
+    fold.Result[,start.Index + 8] = FMeasure
+    
+    # CALCULATE AUC
+    pred <- as.numeric(preds) - 1
+    labels <- as.numeric(test$Episode) - 1
+    ROC_auc <- performance(prediction(pred, labels), "auc")
+    AUC <- ROC_auc@y.values[[1]]
+    fold.Result[,start.Index + 10] = AUC
+    
+    # INCREASE START.INDEX BY 1
+    start.Index = start.Index + 1
+  }
 # AT THE END OF THIS FUNCTION, RETURN THE RESULT FOR THAT FOLD (1 ROW)
-print(fold.Result)
+  return(fold.Result)
+}
 
-
-
+#Test_Each_Fold(test, train, trainSynth, result.Cols)
 ```
 
