@@ -89,11 +89,17 @@ Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined,result.Co
 ```{r}
 
 
-KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed)
+KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FALSE)
 {
   set.seed(my.Seed)
+  
   # CREATE THE FIRST LAYER OF FOLDER (test, train, train_synth, result, result_synth)
-  indi.Path <- file.path(main.Path, "Individual_Patient")
+  if (is.Group == FALSE){
+    indi.Path <- file.path(main.Path, "Individual_Patient")
+  }
+  else {
+    indi.Path <- file.path(main.Path, "Group")
+  }
   test.Path <- file.path(main.Path, "Test")
   train.Path <- file.path(main.Path, "Train")
   trainSynth.Path <- file.path(main.Path, "Train_Synth")
@@ -214,9 +220,58 @@ K = 4
 M = 8  #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
 my.Seed = 0
 set.seed(my.Seed)
-KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed)
+KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed, is.Group = TRUE)
 
+```
 
+```{r}
 
+data <- read.csv(file = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis/Result/patientID_18/Result.csv")
+
+X <- as.numeric(data[,1])
+Y <- data[,2]
+CL = 0.95
+mu <- 0
+#t.test(x = X, y = Y, mu = 0, alternative = "two.side" , paired = TRUE, conf.level = CL)
+
+T_Test <- function(X, Y, mu, CL)
+{
+  n <- length(X)
+  df <- n - 1
+  d <- Y - X
+  d.Bar <- mean(d)
+  SD <- sd(d)
+  SE <- SD/(sqrt(n))
+  t <- (d.Bar-mu)/SE
+  # TEST IF MEAN X AND Y EQUAL. OTHERWISE, TEST IF MEAN(Y) IS GREATER THAN MEAN(X)
+  conclusion <- ""
+  lower.Qt <- (1-CL)/2
+  upper.Qt <- CL + lower.Qt
+  Critical.Value <- qt(upper.Qt, df = df)
+  # print(df)
+  # print(d.Bar)
+  # print(SE)
+  # print(Critical.Value)
+  CI.UpperBound <- round((d.Bar + Critical.Value*SE), digits = 3)
+  CI.LowerBound <- round((d.Bar - Critical.Value*SE), digits = 3)
+  if (t > -Critical.Value && t < Critical.Value)
+  {
+    conclusion = "="
+  } else if(t > Critical.Value) {
+    upper.Qt <- CL
+    Critical.Value <- qt(upper.Qt, df = df)
+    if (t > Critical.Value)
+    {
+      conclusion = "<"
+    } 
+  } else {
+    conclusion = ">"
+  }
+  result <- data.frame(CI.UpperBound, CI.LowerBound, conclusion)
+  result <- transpose(result)
+  return(result)
+}
+
+T_Test(X, Y, mu, CL)
 ```
 
