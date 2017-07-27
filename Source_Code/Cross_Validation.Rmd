@@ -216,17 +216,14 @@ KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed)
 
 ```{r}
 main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Group_Analysis"
-K = 4
+K = 10
 M = 8  #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
 my.Seed = 0
 set.seed(my.Seed)
 KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed, is.Group = TRUE)
-
 ```
 
 ```{r}
-
-
 T_Test <- function(X, Y, mu, CL)
 {
   n <- length(X)
@@ -236,6 +233,8 @@ T_Test <- function(X, Y, mu, CL)
   SD <- sd(d)
   SE <- SD/(sqrt(n))
   t <- (d.Bar-mu)/SE
+  #print(d)
+  #print(d.Bar)
   # TEST IF MEAN X AND Y EQUAL. OTHERWISE, TEST IF MEAN(Y) IS GREATER THAN MEAN(X)
   conclusion <- ""
   lower.Qt <- (1-CL)/2
@@ -245,7 +244,7 @@ T_Test <- function(X, Y, mu, CL)
   CI.LowerBound <- round((d.Bar - Critical.Value*SE), digits = 3)
   if (is.na(t))
   {
-    conclusion <- "="
+    conclusion <- "NA"
   }
   else
   {
@@ -257,10 +256,15 @@ T_Test <- function(X, Y, mu, CL)
       Critical.Value <- qt(upper.Qt, df)
       if (t > Critical.Value)
       {
-        conclusion = "<"
+        conclusion = ">"
       } 
     } else {
-      conclusion = ">"
+      upper.Qt <- (1-CL)
+      Critical.Value <- qt(upper.Qt, df)
+       if (t < Critical.Value)
+      {
+        conclusion = "<"
+      } 
     }
   }
   t <- round(t, 3)
@@ -277,47 +281,70 @@ T_Test <- function(X, Y, mu, CL)
 
 
 ```{r}
-mu <- 0
-CL <- 0.95
-data <- read.csv(file = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis/Result/patientID_18/Result.csv")
-
-
 Get_Row_Name <- function(name1, name2)
 {
   rowName <- paste("Paired Mean of ", name1, " vs.", name2, sep = "")
   return(rowName)
 }
 
-col.Names <- colnames(data)
-row.Names <- c()
-result <- data.frame()
-numCol <- ncol(data)
-indices <- seq(1, numCol, 3)
-for (i in indices)
+T_Test_Whole_Table <- function(data, mu, CL)
 {
-  #print(i)
-  X <- data[,i]
-  Y <- data[,i+1]
-  buf <- T_Test(X, Y, mu, CL)
-  result <- rbind(result, buf)
-  row.Names <- c(row.Names, Get_Row_Name(col.Names[i], col.Names[i+1]))
-
-  #print("**")
-  X <- data[,i]
-  Y <- data[,i+2]
-  buf <- T_Test(X, Y, mu, CL)
-  result <- rbind(result, buf)
-  row.Names <- c(row.Names, Get_Row_Name(col.Names[i], col.Names[i+2]))
-
-  #print("***")
-  X <- data[,i+1]
-  Y <- data[,i+2]
-  buf <- T_Test(X, Y, mu, CL)
-  result <- rbind(result, buf)
-  row.Names <- c(row.Names, Get_Row_Name(col.Names[i+2], col.Names[i+3]))
+  col.Names <- colnames(data)
+  row.Names <- c()
+  result <- data.frame()
+  numCol <- ncol(data)
+  indices <- seq(1, numCol, 3)
+  for (i in indices)
+  {
+    #print(i)
+    X <- data[,i]
+    Y <- data[,i+1]
+    buf <- T_Test(X, Y, mu, CL)
+    result <- rbind(result, buf)
+    row.Names <- c(row.Names, Get_Row_Name(col.Names[i], col.Names[i+1]))
+  
+    #print("**")
+    X <- data[,i]
+    Y <- data[,i+2]
+    buf <- T_Test(X, Y, mu, CL)
+    result <- rbind(result, buf)
+    row.Names <- c(row.Names, Get_Row_Name(col.Names[i], col.Names[i+2]))
+  
+    #print("***")
+    X <- data[,i+1]
+    Y <- data[,i+2]
+    buf <- T_Test(X, Y, mu, CL)
+    result <- rbind(result, buf)
+    row.Names <- c(row.Names, Get_Row_Name(col.Names[i+1], col.Names[i+2]))
+  }
+  row.names(x = result) <- row.Names
+  #print(result)
+  return(result)
 }
-row.names(x = result) <- row.Names
-print(result)
-write.csv(x = result, file = "/Users/KVTran/Desktop/Result_Sample.csv")
+
+
+```
+
+
+```{r}
+
+T_Test_All_Result <- function(allResult.Path, mu, CL)
+{
+  individuals.Array <- list.files(path = allResult.Path, pattern = NULL)
+  for (individual in individuals.Array)
+  {
+    #print(individual)
+    indiResult.Path <- file.path(allResult.Path, individual, "Result.csv")
+    #print(indiResult.Path)
+    CrossValidation_Result <- read.csv(indiResult.Path)
+    T_Test_Result <- T_Test_Whole_Table(CrossValidation_Result, mu, CL)
+    write.csv(x = T_Test_Result, file = file.path(allResult.Path, individual, "T_Test_Result.csv"))
+  }
+}
+
+mu <- 0
+CL <- 0.95
+allResult.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis/Result"
+T_Test_All_Result(allResult.Path, mu, CL)
 ```
 
