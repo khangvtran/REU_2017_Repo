@@ -226,13 +226,6 @@ KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed, is.Group = TRUE)
 
 ```{r}
 
-data <- read.csv(file = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis/Result/patientID_18/Result.csv")
-
-X <- as.numeric(data[,1])
-Y <- data[,2]
-CL = 0.95
-mu <- 0
-#t.test(x = X, y = Y, mu = 0, alternative = "two.side" , paired = TRUE, conf.level = CL)
 
 T_Test <- function(X, Y, mu, CL)
 {
@@ -247,31 +240,84 @@ T_Test <- function(X, Y, mu, CL)
   conclusion <- ""
   lower.Qt <- (1-CL)/2
   upper.Qt <- CL + lower.Qt
-  Critical.Value <- qt(upper.Qt, df = df)
-  # print(df)
-  # print(d.Bar)
-  # print(SE)
-  # print(Critical.Value)
+  Critical.Value <- qt(upper.Qt, df)
   CI.UpperBound <- round((d.Bar + Critical.Value*SE), digits = 3)
   CI.LowerBound <- round((d.Bar - Critical.Value*SE), digits = 3)
-  if (t > -Critical.Value && t < Critical.Value)
+  if (is.na(t))
   {
-    conclusion = "="
-  } else if(t > Critical.Value) {
-    upper.Qt <- CL
-    Critical.Value <- qt(upper.Qt, df = df)
-    if (t > Critical.Value)
-    {
-      conclusion = "<"
-    } 
-  } else {
-    conclusion = ">"
+    conclusion <- "="
   }
-  result <- data.frame(CI.UpperBound, CI.LowerBound, conclusion)
-  result <- transpose(result)
+  else
+  {
+    if (t > -Critical.Value && t < Critical.Value)
+    {
+      conclusion = "="
+    } else if(t > Critical.Value) {
+      upper.Qt <- CL
+      Critical.Value <- qt(upper.Qt, df)
+      if (t > Critical.Value)
+      {
+        conclusion = "<"
+      } 
+    } else {
+      conclusion = ">"
+    }
+  }
+  t <- round(t, 3)
+  Critical.Value <- round(Critical.Value, 3)
+  result <- data.frame(CI.LowerBound, CI.UpperBound,
+                       t, Critical.Value,
+                       conclusion)
+  names(result)[names(result) == 'Critical.Value'] <- 'Critical.Value (+-)'
+  #print(colnames(result))
   return(result)
 }
 
-T_Test(X, Y, mu, CL)
+```
+
+
+```{r}
+mu <- 0
+CL <- 0.95
+data <- read.csv(file = "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis/Result/patientID_18/Result.csv")
+
+
+Get_Row_Name <- function(name1, name2)
+{
+  rowName <- paste("Paired Mean of ", name1, " vs.", name2, sep = "")
+  return(rowName)
+}
+
+col.Names <- colnames(data)
+row.Names <- c()
+result <- data.frame()
+numCol <- ncol(data)
+indices <- seq(1, numCol, 3)
+for (i in indices)
+{
+  #print(i)
+  X <- data[,i]
+  Y <- data[,i+1]
+  buf <- T_Test(X, Y, mu, CL)
+  result <- rbind(result, buf)
+  row.Names <- c(row.Names, Get_Row_Name(col.Names[i], col.Names[i+1]))
+
+  #print("**")
+  X <- data[,i]
+  Y <- data[,i+2]
+  buf <- T_Test(X, Y, mu, CL)
+  result <- rbind(result, buf)
+  row.Names <- c(row.Names, Get_Row_Name(col.Names[i], col.Names[i+2]))
+
+  #print("***")
+  X <- data[,i+1]
+  Y <- data[,i+2]
+  buf <- T_Test(X, Y, mu, CL)
+  result <- rbind(result, buf)
+  row.Names <- c(row.Names, Get_Row_Name(col.Names[i+2], col.Names[i+3]))
+}
+row.names(x = result) <- row.Names
+print(result)
+write.csv(x = result, file = "/Users/KVTran/Desktop/Result_Sample.csv")
 ```
 
