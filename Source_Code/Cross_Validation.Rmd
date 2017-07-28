@@ -38,9 +38,19 @@ vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight",
 #################### CROSS VALIDATION ########################
 ##############################################################
 
+#########################
+########## KNN ##########
+#########################
+
 ```{r}
 # Normalize all predictive variables
 normalize <- function(x){
+  # print(max(x))
+  # print(min(x))
+  # print("*****************")
+  if (max(x) == min(x)){
+    return(0.5)
+  }
   return( (x-min(x))/(max(x) - min(x)) )
 }
 
@@ -57,37 +67,38 @@ Get_Num_NN <- function(n){
 
 Classisfy_KNN <- function(train, test)
 { 
+  # ###########################
   #Convert NumEpthePrevDay to integer
-  train[,(ncol(train)-1)] <- as.integer(train[,(ncol(train)-1)])
-  test[,(ncol(test)-1)] <- as.integer(test[,(ncol(test)-1)])
-  ###################################################################################
-  # # Convert Episode to factor, leave this part out after plugging in to Test_Each_Fold
-  # train[,ncol(train)] <- as.factor(train[,ncol(train)])
-  # test[,ncol(test)] <- as.factor(test[,ncol(test)])
-  ###################################################################################
+  train[,(ncol(train)-1)] <- as.integer( as.character((train[,(ncol(train)-1)])) )
+  test[,(ncol(test)-1)] <- as.integer( as.character(test[,(ncol(test)-1)]))
+  #print(train)
   train_predictors <- as.data.frame(lapply(train[ , (1:ncol(train) -1) ], normalize))
   train_targets <- train[ , ncol(train)]
   test_predictors <- as.data.frame(lapply(test[ , (1:ncol(train) -1) ], normalize))
-  test_targets <- test[ , ncol(test)]
+  test_targets <- test[ , ncol(test)] 
+  # print(any(is.na(test_predictors)))  ######
+  # print(sapply(test_predictors, function(x) sum(is.na(x)))) ######
+  # print(dim(test_predictors)) ######
+  # print(test_predictors) ######
   numRecords <- Get_Num_NN(nrow(train) + nrow(test))
   preds <- knn(train = train_predictors, test = test_predictors, cl = train_targets, k = numRecords)
   return(preds)
 }
 
 
-train <- read.csv("/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Train/patientID_3/Real_Training_For_Fold1.csv")
-test <- read.csv("/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Test/patientID_3/Fold1.csv")
-preds <- Classisfy_KNN(train, test)
-conf <- table(test$Episode, preds)
-conf <- conf[2:1, 2:1]
-conf
+# train <- read.csv("/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Train/patientID_3/Real_Training_For_Fold1.csv")
+# test <- read.csv("/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Test/patientID_3/Fold1.csv")
+# preds <- Classisfy_KNN(train, test)
+# conf <- table(test$Episode, preds)
+# conf <- conf[2:1, 2:1]
+# conf
 ```
 
 
 ```{r}
 
-Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined, result.Cols)
-{
+Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined, result.Cols, method)
+{ 
   fold.Result <- data.frame(matrix(0 ,nrow = 1, ncol = length(result.Cols)))
   colnames(fold.Result) <- result.Cols
   CP = 0.01
@@ -97,8 +108,14 @@ Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined, result.C
   for (train.Set in train.List)
   {
     ######################  CONDITIONAL FOR TESTING EITHER TREE OR KNN HERE #############
-    tree <- rpart(Episode ~ ., train.Set, method = "class", control = CONTROL)
-    preds <- predict(object = tree, newdata = test, type = "class" )
+    if (method == "tree"){
+      tree <- rpart(Episode ~ ., train.Set, method = "class", control = CONTROL)
+      preds <- predict(object = tree, newdata = test, type = "class" )
+    } 
+      else if (method == "knn"){
+        preds <- Classisfy_KNN(train.Set, test)
+      }
+
     #####################################################################################
     conf <- table(test$Episode, preds)
     conf <- conf[2:1, 2:1]
@@ -138,8 +155,11 @@ Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined, result.C
 
 
 ```{r}
-KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FALSE)
+KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FALSE, method)
 {
+  if (missing(method)){
+     stop("Need to specify method to either 'tree' or 'knn'.")
+  }
   set.seed(my.Seed)
   
   # CREATE THE FIRST LAYER OF FOLDER (test, train, train_synth, result, result_synth)
@@ -238,7 +258,7 @@ KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FAL
       # RUN THE MODEL HERE, APPEND THE TEST RECORD (1 ROW) TO THE RESULT TABLE
       print(file.Names[i])
       print(foldName)
-      fold.Result <- Test_Each_Fold(test, train, trainSynth, trainSynthCombined, result.Cols)
+      fold.Result <- Test_Each_Fold(test, train, trainSynth, trainSynthCombined, result.Cols, method)
       Result <- rbind(Result, fold.Result)
      
     }
@@ -379,15 +399,25 @@ T_Test_All_Result <- function(allResult.Path, mu, CL)
 
 
 
+
+
+
+
+
+###################################################################
+############################ MAIN CODE ############################ 
+###################################################################
+
+```{r}
+K = 5
+M = 8 #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
+my.Seed = 1
+```
+
+
 ```{r}
 main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree"
-
-# set this as a default argument
-# vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )
-K = 5
-M = 5 #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
-my.Seed = 111
-KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed)
+KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed, method = "tree")
 ```
 
 ```{r}
@@ -396,6 +426,22 @@ CL <- 0.95
 allResult.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Result"
 T_Test_All_Result(allResult.Path, mu, CL)
 ```
+
+
+```{r}
+main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_KNN"
+KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed, method = "knn")
+```
+
+
+
+```{r}
+mu <- 0
+CL <- 0.95
+allResult.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_KNN/Result"
+T_Test_All_Result(allResult.Path, mu, CL)
+```
+
 
 
 ```{r}
