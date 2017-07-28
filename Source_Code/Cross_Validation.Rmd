@@ -13,7 +13,7 @@ source(file = "ipak.R") # ipak developed by Steven Worthington:
 #install.packages("rattle")
 # Create a vector of library needed and attach them to the session with ipak()
 libraryList <- c("devtools","tidyverse", "tibble", "synthpop","gridExtra",
-                 "data.table", "dplyr", "caret","rpart",
+                 "data.table", "dplyr", "caret","rpart", "class",
                  "rpart.plot", "RColorBrewer", "ROCR", "pROC")
 ipak(libraryList)
 
@@ -34,9 +34,59 @@ vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight",
 
 
 
+##############################################################
+#################### CROSS VALIDATION ########################
+##############################################################
+
+```{r}
+# Normalize all predictive variables
+normalize <- function(x){
+  return( (x-min(x))/(max(x) - min(x)) )
+}
+
+# Get the number of neareast neighbor
+Get_Num_NN <- function(n){
+  # n is number of records in both testing and training set
+  n <- round(sqrt(n))
+  if (n %%2 == 0) {
+    n = n+1
+  }
+  return(n)
+}
+
+
+Classisfy_KNN <- function(train, test)
+{ 
+  #Convert NumEpthePrevDay to integer
+  train[,(ncol(train)-1)] <- as.integer(train[,(ncol(train)-1)])
+  test[,(ncol(test)-1)] <- as.integer(test[,(ncol(test)-1)])
+  ###################################################################################
+  # # Convert Episode to factor, leave this part out after plugging in to Test_Each_Fold
+  # train[,ncol(train)] <- as.factor(train[,ncol(train)])
+  # test[,ncol(test)] <- as.factor(test[,ncol(test)])
+  ###################################################################################
+  train_predictors <- as.data.frame(lapply(train[ , (1:ncol(train) -1) ], normalize))
+  train_targets <- train[ , ncol(train)]
+  test_predictors <- as.data.frame(lapply(test[ , (1:ncol(train) -1) ], normalize))
+  test_targets <- test[ , ncol(test)]
+  numRecords <- Get_Num_NN(nrow(train) + nrow(test))
+  preds <- knn(train = train_predictors, test = test_predictors, cl = train_targets, k = numRecords)
+  return(preds)
+}
+
+
+train <- read.csv("/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Train/patientID_3/Real_Training_For_Fold1.csv")
+test <- read.csv("/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Test/patientID_3/Fold1.csv")
+preds <- Classisfy_KNN(train, test)
+conf <- table(test$Episode, preds)
+conf <- conf[2:1, 2:1]
+conf
+```
+
+
 ```{r}
 
-Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined,result.Cols)
+Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined, result.Cols)
 {
   fold.Result <- data.frame(matrix(0 ,nrow = 1, ncol = length(result.Cols)))
   colnames(fold.Result) <- result.Cols
@@ -46,9 +96,12 @@ Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined,result.Co
   train.List <- list(train, trainSynth, trainSynthCombined)
   for (train.Set in train.List)
   {
+    ######################  CONDITIONAL FOR TESTING EITHER TREE OR KNN HERE #############
     tree <- rpart(Episode ~ ., train.Set, method = "class", control = CONTROL)
     preds <- predict(object = tree, newdata = test, type = "class" )
+    #####################################################################################
     conf <- table(test$Episode, preds)
+    conf <- conf[2:1, 2:1]
     # calculate and append accuracy
     acc <- sum(diag(conf)) / (sum(conf))
     fold.Result[,start.Index] = acc
@@ -84,11 +137,7 @@ Test_Each_Fold <- function(test, train, trainSynth, trainSynthCombined,result.Co
 
 
 
-
-
 ```{r}
-
-
 KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FALSE)
 {
   set.seed(my.Seed)
@@ -112,8 +161,6 @@ KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FAL
     dir.create(path, showWarnings = FALSE)
   }
   
-  
-  
   # COLLECT ALL THE NAMES OF THE OBSERVED DATA FILES
   file.Names <- list.files(path = indi.Path, pattern = "*.csv")
   len <- length(file.Names)
@@ -130,6 +177,8 @@ KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FAL
     assign(x = file.Names[i], value = read.csv(full.Path, check.names = FALSE))
     ods <- get(file.Names[i])
     ods <- ods[,vars]
+    # CONVERT EPISODE AND NUMBER OF EP THE PREV DAY TO FACTOR, AND ALL OTHER VARIABLES EXCEPT FOR PERCENTAGE OF WEIGHT CHANGED INTO INTEGER
+    ods[, c(1,2,3,4,5,8,9) ] <- lapply(ods[, c(1,2,3,4,5,8,9) ], as.integer)
     ods <- adjustToFactor(ods)
     # CREATE INDICES FOR CROSS VALIDATION FOLDS
     indices.List <- createFolds(y = ods$Episode, k = K)
@@ -201,27 +250,10 @@ KFolds_Cross_Validate <- function(main.Path, K, M, vars, my.Seed, is.Group = FAL
 }
 ```
 
-```{r}
-#main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data"
-main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis"
 
-K = 5
-M = 8  #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
-my.Seed = 0
-
-# set this as a default argument
-vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )
-KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed)
-```
-
-```{r}
-main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Group_Analysis"
-K = 10
-M = 8  #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
-my.Seed = 0
-set.seed(my.Seed)
-KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed, is.Group = TRUE)
-```
+##############################################################
+#################### THE T-TEST FUNCTIONS ####################
+##############################################################
 
 ```{r}
 T_Test <- function(X, Y, mu, CL)
@@ -244,28 +276,30 @@ T_Test <- function(X, Y, mu, CL)
   CI.LowerBound <- round((d.Bar - Critical.Value*SE), digits = 3)
   if (is.na(t))
   {
-    conclusion <- "NA"
+    conclusion <- "No Conclusion"
   }
   else
   {
     if (t > -Critical.Value && t < Critical.Value)
     {
       conclusion = "="
-    } else if(t > Critical.Value) {
+    } else if(t > Critical.Value){
       upper.Qt <- CL
       Critical.Value <- qt(upper.Qt, df)
       if (t > Critical.Value)
       {
         conclusion = ">"
       } 
-    } else {
+    } else if (t < -Critical.Value) {
       upper.Qt <- (1-CL)
       Critical.Value <- qt(upper.Qt, df)
-       if (t < Critical.Value)
+       if (t < -Critical.Value)
       {
         conclusion = "<"
-      } 
-    }
+       }
+    } else {
+         conclusion = "No Conclusion"
+       }
   }
   t <- round(t, 3)
   Critical.Value <- round(Critical.Value, 3)
@@ -302,7 +336,7 @@ T_Test_Whole_Table <- function(data, mu, CL)
     buf <- T_Test(X, Y, mu, CL)
     result <- rbind(result, buf)
     row.Names <- c(row.Names, Get_Row_Name(col.Names[i], col.Names[i+1]))
-  
+       
     #print("**")
     X <- data[,i]
     Y <- data[,i+2]
@@ -341,10 +375,34 @@ T_Test_All_Result <- function(allResult.Path, mu, CL)
     write.csv(x = T_Test_Result, file = file.path(allResult.Path, individual, "T_Test_Result.csv"))
   }
 }
+```
 
+
+
+```{r}
+main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree"
+
+# set this as a default argument
+# vars <- c("AM Stress", "AM Hunger", "AM Sleep", "AM Sleep hours", "AM Weight", "Percent Weight change (from prev week)", "Percent Weight change (from prev day)","PM Stress", "EVE Stress", "Number of Episodes Previous Day", "Episode" )
+K = 5
+M = 5 #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
+my.Seed = 111
+KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed)
+```
+
+```{r}
 mu <- 0
 CL <- 0.95
-allResult.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis/Result"
+allResult.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Individual_Analysis_DecisionTree/Result"
 T_Test_All_Result(allResult.Path, mu, CL)
 ```
 
+
+```{r}
+# main.Path <- "/Users/KVTran/Documents/Research/WPI/Slip_Buddy/REU_2017/data/Group_Analysis"
+# K = 10
+# M = 8  #  40 TALK ABOUT THE LEVEL OF M THAT WILL UP THE ACCURACY 
+# my.Seed = 0
+# set.seed(my.Seed)
+# KFolds_Cross_Validate(main.Path, K, M, vars, my.Seed, is.Group = TRUE)
+```
